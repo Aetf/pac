@@ -15,31 +15,27 @@ __version__ = '1.3.5'
 __maintainer__ = 'Ricardo Band'
 __email__ = 'email@ricardo.band'
 
+import os
+import re
 import sys
 from typing import List
 from subprocess import call, run, PIPE
 
 
-def search(search_term: str) -> List[dict]:
+def search(search_term: str) ->List[dict]:
     """
-    Search for the given terms using pacaur and return the results. The output of pacaur looks like this:
+    Search for the given terms using pacaur and return the results. The output of pacaur contains two
+    different type of lines, for results from repo:
+    repo/package_name version (group) [installed: version]
+    for results from AUR:
+    aur/package_name version (vote, popularity) [installed: version]
 
-    $ pacaur -Ss android
-    extra/gvfs-mtp 1.30.3-1 (gnome) [installed]
-        Virtual filesystem implementation for GIO (MTP backend; Android, media player)
-    community/android-file-transfer 3.0-2
-        Android MTP client with minimalistic UI
-    aur/android-studio 2.2.3.0-1 (626, 22.50) [installed]
-        The official Android IDE (Stable branch)
-    aur/android-ndk r13b-1 (252, 3.70)
-        Android C/C++ developer kit
-
-    A result consists of 2 lines. The second one is the package description. The first one goes like this (paranthesis
-    means optional):
+    A result consists of 2 lines. The second one is the package description. The first one goes like
+    this (paranthesis means optional):
     repo/package_name version [package_group] [installed_state] [votes]
 
-    - repo is the name of the repository and can be any string configured in /etc/pacman.conf like 'core', 'extra', 'aur',
-    'myrepo'
+    - repo is the name of the repository and can be any string configured in /etc/pacman.conf like 'core',
+    'extra', 'aur', 'myrepo'
     - package name is the identifiing string of the package
     - version can be any string but will most likely be something like 1.2.3-2
     - package group is a string in brackets
@@ -50,36 +46,38 @@ def search(search_term: str) -> List[dict]:
     We also put everything else in a dict to make the output more colorful.
     """
     result: List[dict] = []
-    out: str = run(['pacaur', '-Ss', search_term], stdout=PIPE).stdout.decode()
     entry: dict = {}
+    env: dict = dict(os.environ)
 
+    env['LC_ALL'] = 'C'
+    out: str = run(['pacaur', '-Ss', search_term], env=env, stdout=PIPE).stdout.decode()
+
+    package_pattern = re.compile(
+        r'''^(?P<repo>.+)/(?P<package>\S+)\s(?P<version>\S+)  # extra/telepathy-kde-desktop-applets 16.12.3-1
+            (\s                # optional group or votes
+                (?P<group_or_votes>\(.+\))  # (kde-applications kdenetwork telepathy-kde) or (1, 0.01)
+            )?
+            (\s
+                (?P<installed>\[installed.*\])
+            )?
+            ''', re.VERBOSE)
     for line in out.split('\n'):
-        if line.startswith(' '):
+        if not line:
+            continue
+        match = package_pattern.match(line)
+        if match is None:
             entry['description'] = line.strip()
             result.append(entry)
             # create a new entry
             entry = {}
-        elif line != '':
-            l = line.split('/')
-            entry['repo'] = l[0]
-            l = l[1].split(' ')
-            entry['package'] = l[0]
-            entry['version'] = l[1]
-            entry['votes'] = None
-            entry['group'] = None
-            entry['installed'] = None
-            if len(l) > 2 and l[2].startswith('('):
-                if l[2].endswith(')'):
-                    entry['group'] = l[2]
-                else:
-                    entry['votes'] = f'{l[2]} {l[3]}'
-            if len(l) > 3 and l[3].startswith('('):
-                if l[3].endswith(')'):
-                    entry['group'] = l[3]
-                else:
-                    entry['votes'] = f'{l[3]} {l[4]}'
-            if '[installed]' in l:
-                entry['installed'] = '[installed]'
+        else:
+            entry.update(match.groupdict())
+            # special handling for group_or_votes
+            entry['votes'] = entry['group'] = None
+            if entry['repo'] == 'aur':
+                entry['votes'] = entry.pop('group_or_votes', None)
+            else:
+                entry['group'] = entry.pop('group_or_votes', None)
     return result
 
 
@@ -202,4 +200,3 @@ if __name__ == '__main__':
                 pass
     else:
         call('pacaur -Syu', shell=True)
-
