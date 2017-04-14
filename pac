@@ -53,7 +53,7 @@ def search(search_term: str) ->List[dict]:
     out: str = run(['pacaur', '-Ss', search_term], env=env, stdout=PIPE).stdout.decode()
 
     package_pattern = re.compile(
-        r'''^(?P<repo>.+)/(?P<package>\S+)\s(?P<version>\S+)  # extra/telepathy-kde-desktop-applets 16.12.3-1
+        r'''^(?P<repo>\S+)/(?P<package>\S+)\s(?P<version>\S+)  # extra/telepathy-kde-desktop-applets 16.12.3-1
             (\s                # optional group or votes
                 (?P<group_or_votes>\(.+\))  # (kde-applications kdenetwork telepathy-kde) or (1, 0.01)
             )?
