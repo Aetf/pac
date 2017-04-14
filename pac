@@ -132,16 +132,11 @@ def parse_num(numbers: str) -> List[int]:
             start, end = n.split('-')
             if not (start.isdecimal() and end.isdecimal()):
                 sys.exit(f'{start} or {end} is not a number')
-            # TODO: I'm pretty sure this can be optimized
-            for i in list(range(int(start) - 1, int(end))):
-                result.append(i)
+            result.extend(range(int(start) - 1, int(end)))
         elif n.isdecimal():
             result.append(int(n) - 1)
         else:
-            if n == 'q':
-                sys.exit()
-            else:
-                sys.exit(f'Could not parse "{n}". Try 1 2 3 or 1-3.')
+            sys.exit()
 
     return result
 
