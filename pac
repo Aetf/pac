@@ -85,37 +85,39 @@ def present(entries: List[dict]):
     """
     Present the list of entries with numbers in front of it. For each package it displays 2 lines like this:
 
-    1   extra/gvfs-mtp 1.30.3-1 (gnome) [installed]
+    1 extra/gvfs-mtp 1.30.3-1 (gnome) [installed]
         Virtual filesystem implementation for GIO (MTP backend; Android, media player)
-    2   community/android-file-transfer 3.0-2
+    2 community/android-file-transfer 3.0-2
         Android MTP client with minimalistic UI
-    3   aur/android-studio 2.2.3.0-1 [installed] (626, 22.50)
+    3 aur/android-studio 2.2.3.0-1 [installed] (626, 22.50)
         The official Android IDE (Stable branch)
-    4   aur/android-ndk r13b-1 (252, 3.70)
+    4 aur/android-ndk r13b-1 (252, 3.70)
         Android C/C++ developer kit
 
     After that, a prompt will be printed but this is the task for another function.
     """
     CEND: str = '\33[0m'
     CBOLD: str = '\33[1m'
-    CBLACK: str = '\33[30m'
-    CVIOLET: str = '\33[35m'
-    CGREEN2: str = '\33[92m'
-    CYELLOW2: str = '\33[93m'
-    CVIOLET2: str = '\33[95m'
-    CYELLOWBG: str = '\33[43m'
-    CYELLOWBG2: str = '\33[103m'
+    CGREEN2: str = '\33[1;32m'
+    CYELLOW2: str = '\33[1;33m'
+    CYELLOW3: str = '\33[7;33m'
+    CBLUE2: str = '\33[1;34m'
+    CVIOLET2: str = '\33[1;35m'
 
     for index, entry in enumerate(entries):
-        padding = len(str(index + 1))
-        print(f"{CBLACK}{CYELLOWBG}{index + 1}{CEND} {CVIOLET2}{entry['repo']}/{CEND}{CBOLD}{entry['package']}{CEND} {CGREEN2}{entry['version']}{CEND}", end='')
+        padding = ' ' * len(str(index + 1))
+        print(f"{CYELLOW3}{index + 1}{CEND} "
+              f"{CVIOLET2}{entry['repo']}/{CEND}"
+              f"{CBOLD}{entry['package']}{CEND} "
+              f"{CGREEN2}{entry['version']}{CEND}",
+              end='')
         if entry['group']:
-            print(f" {entry['group']}", end='')
+            print(f" {CBLUE2}{entry['group']}{CEND}", end='')
         if entry['installed']:
-            print(f" {CBLACK}{CYELLOWBG2}{entry['installed']}{CEND}", end='')
+            print(f" {CYELLOW3}{CBOLD}{entry['installed']}{CEND}", end='')
         if entry['votes']:
-            print(f" {CBLACK}{CYELLOWBG2}{entry['votes']}{CEND}", end='')
-        print(f"\n{' ' * len(str(index + 1))} {entry['description']}")
+            print(f" {CYELLOW3}{CBOLD}{entry['votes']}{CEND}", end='')
+        print(f"\n{padding}   {entry['description']}")
     print(f'{CYELLOW2}==>{CEND} {CBOLD}Enter n° of packages to be installed (ex: 1 2 3 or 1-3){CEND}')
     print(f'{CYELLOW2}==>{CEND} {CBOLD}-------------------------------------------------------{CEND}')
 
@@ -187,7 +189,7 @@ if __name__ == '__main__':
                 entries = search(' '.join(sys.argv[1:]))
                 if len(entries) > 0:
                     present(entries)
-                    numbers = parse_num(input('\33[93m==>\33[0m '))
+                    numbers = parse_num(input('\33[1;33m==>\33[0m '))
                     install(numbers, entries)
                 else:
                     print('Nothing found.')
