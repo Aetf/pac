@@ -22,7 +22,20 @@ from typing import List
 from subprocess import call, run, PIPE
 
 
-def search(search_term: str) ->List[dict]:
+_CEND: str = '\33[0m'
+_CBOLD: str = '\33[1m'
+_CGREEN2: str = '\33[1;32m'
+_CYELLOW2: str = '\33[1;33m'
+_CYELLOW3: str = '\33[7;33m'
+_CBLUE2: str = '\33[1;34m'
+_CVIOLET2: str = '\33[1;35m'
+
+
+class UserQuit(Exception):
+    pass
+
+
+def search(search_term: str) -> List[dict]:
     """
     Search for the given terms using pacaur and return the results. The output of pacaur contains two
     different type of lines, for results from repo:
@@ -96,56 +109,63 @@ def present(entries: List[dict]):
 
     After that, a prompt will be printed but this is the task for another function.
     """
-    CEND: str = '\33[0m'
-    CBOLD: str = '\33[1m'
-    CGREEN2: str = '\33[1;32m'
-    CYELLOW2: str = '\33[1;33m'
-    CYELLOW3: str = '\33[7;33m'
-    CBLUE2: str = '\33[1;34m'
-    CVIOLET2: str = '\33[1;35m'
-
     for index, entry in enumerate(entries):
         padding = ' ' * len(str(index + 1))
-        print(f"{CYELLOW3}{index + 1}{CEND} "
-              f"{CVIOLET2}{entry['repo']}/{CEND}"
-              f"{CBOLD}{entry['package']}{CEND} "
-              f"{CGREEN2}{entry['version']}{CEND}",
+        print(f"{_CYELLOW3}{index + 1}{_CEND} "
+              f"{_CVIOLET2}{entry['repo']}/{_CEND}"
+              f"{_CBOLD}{entry['package']}{_CEND} "
+              f"{_CGREEN2}{entry['version']}{_CEND}",
               end='')
         if entry['group']:
-            print(f" {CBLUE2}{entry['group']}{CEND}", end='')
+            print(f" {_CBLUE2}{entry['group']}{_CEND}", end='')
         if entry['installed']:
-            print(f" {CYELLOW3}{CBOLD}{entry['installed']}{CEND}", end='')
+            print(f" {_CYELLOW3}{_CBOLD}{entry['installed']}{_CEND}", end='')
         if entry['votes']:
-            print(f" {CYELLOW3}{CBOLD}{entry['votes']}{CEND}", end='')
+            print(f" {_CYELLOW3}{_CBOLD}{entry['votes']}{_CEND}", end='')
         print(f"\n{padding}   {entry['description']}")
-    print(f'{CYELLOW2}==>{CEND} {CBOLD}Enter n° of packages to be installed (ex: 1 2 3 or 1-3){CEND}')
-    print(f'{CYELLOW2}==>{CEND} {CBOLD}-------------------------------------------------------{CEND}')
+    print(f'{_CYELLOW2}==>{_CEND} {_CBOLD}Enter n° of packages to be installed (ex: 1 2 3 or 1-3){_CEND}')
+    print(f'{_CYELLOW2}==>{_CEND} {_CBOLD}-------------------------------------------------------{_CEND}')
 
 
 def parse_num(numbers: str) -> List[int]:
     """
     Takes a string like '1 2 3 6-8' and finds out which numbers the user wants. In this case 1,2,3,6,7,8.
-    It can detect single digits or ranges seperated by space. A range must be given as from-to, where 'from' is always
-    smaller then 'to'.
+    It can detect single digits or ranges seperated by space. A range must be given as from-to, where 'from'
+    is always smaller than 'to'.
     """
     result = []
     for n in numbers.split(' '):
         if '-' in n:
             start, end = n.split('-')
             if not (start.isdecimal() and end.isdecimal()):
-                sys.exit(f'{start} or {end} is not a number')
+                raise ValueError(f'{start} or {end} is not a number')
             result.extend(range(int(start) - 1, int(end)))
         elif n.isdecimal():
             result.append(int(n) - 1)
         else:
-            sys.exit()
+            raise ValueError
 
     return result
 
 
+def prompt() -> List[int]:
+    """
+    Print a prompt and finds out which numbers the user wants. The input should be in the form of '1 2 3 6-8',
+    which means 1,2,3,6,7,8. It can detect single digits or ranges seperated by space. A range must be given
+    as from-to, where 'from' is always smaller than 'to'.
+    """
+    while True:
+        try:
+            raw = input(f'{_CYELLOW2}==>{_CEND} ')
+            return parse_num(raw)
+        except (ValueError, EOFError):
+            raise UserQuit
+
+
 def install(numbers: List[int], packages: List[dict]):
     """
-    Gets the chosen packages and concatinates them. Then executes the pacaur command with the packages to install them.
+    Gets the chosen packages and concatinates them. Then executes the pacaur command with the packages to
+    install them.
     """
     names = [packages[i]['package'] for i in numbers]
     call(f'pacaur -S {" ".join(names)}', shell=True)
@@ -160,40 +180,40 @@ def autoremove():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
-            print(('pac - wrapper around pacaur to mimic yaourts search feature\n'
-                   '\n'
-                   'Usage:\n'
-                   '    pac\n'
-                   '    pac <search_pattern>\n'
-                   '    pac (-a | --autoremove)\n'
-                   '    pac (-h | --help)\n'
-                   '    pac <pacaur_arguments>\n'
-                   '\n'
-                   'Options:\n'
-                   '-a, --autoremove    Removes orphan packages.\n'
-                   '-h, --help          Shows this help.\n'
-                   '\n'
-                   'Invoking pac without arguments is equivalent to `pacaur -Syu`.\n'
-                   '\n'
-                   'MIT licensed\n'
-                   'https://github.com/XenGi/pac\n'))
-        elif '-a' in sys.argv[1:] or '--autoremove' in sys.argv[1:]:
-            # TODO: add warning
-            autoremove()
-        elif sys.argv[1][:2] in ['-D', '-F', '-Q', '-R', '-S', '-T', '-U']:
-            call(f'pacaur {" ".join(sys.argv[1:])}', shell=True)
-        else:
-            try:
+    try:
+        if len(sys.argv) > 1:
+            if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
+                print(('pac - wrapper around pacaur to mimic yaourts search feature\n'
+                       '\n'
+                       'Usage:\n'
+                       '    pac\n'
+                       '    pac <search_pattern>\n'
+                       '    pac (-a | --autoremove)\n'
+                       '    pac (-h | --help)\n'
+                       '    pac <pacaur_arguments>\n'
+                       '\n'
+                       'Options:\n'
+                       '-a, --autoremove    Removes orphan packages.\n'
+                       '-h, --help          Shows this help.\n'
+                       '\n'
+                       'Invoking pac without arguments is equivalent to `pacaur -Syu`.\n'
+                       '\n'
+                       'MIT licensed\n'
+                       'https://github.com/XenGi/pac\n'))
+            elif '-a' in sys.argv[1:] or '--autoremove' in sys.argv[1:]:
+                # TODO: add warning
+                autoremove()
+            elif sys.argv[1][:2] in ['-D', '-F', '-Q', '-R', '-S', '-T', '-U']:
+                call(f'pacaur {" ".join(sys.argv[1:])}', shell=True)
+            else:
                 entries = search(' '.join(sys.argv[1:]))
                 if len(entries) > 0:
                     present(entries)
-                    numbers = parse_num(input('\33[1;33m==>\33[0m '))
+                    numbers = prompt()
                     install(numbers, entries)
                 else:
                     print('Nothing found.')
-            except KeyboardInterrupt:
-                pass
-    else:
-        call('pacaur -Syu', shell=True)
+        else:
+            call('pacaur -Syu', shell=True)
+    except (UserQuit, KeyboardInterrupt):
+        pass
